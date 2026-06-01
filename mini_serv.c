@@ -16,6 +16,7 @@ char	*msgs[65536];
 fd_set	rfds, wfds, afds;
 char	buf_read[1001], buf_write[42];
 
+// COPIED FROM MAIN.C START
 int extract_message(char **buf, char **msg)
 {
 	char	*newbuf;
@@ -62,6 +63,7 @@ char *str_join(char *buf, char *add)
 	strcat(newbuf, add);
 	return (newbuf);
 }
+// COPIED FROM MAIN.C END
 
 void	fatal_error()
 {
@@ -128,6 +130,7 @@ int		main(int ac, char **av)
 		exit(1);
 	}
 
+	// COPIED FROM MAIN.C START
 	FD_ZERO(&afds);
 	int sockfd = create_socket();
 
@@ -142,6 +145,7 @@ int		main(int ac, char **av)
 		fatal_error();
 	if (listen(sockfd, SOMAXCONN)) // the main uses 10, SOMAXCONN is 180 on my machine
 		fatal_error();
+	// COPIED FROM MAIN.C END
 	
 	while (1)
 	{
