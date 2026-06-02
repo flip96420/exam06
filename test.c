@@ -12,8 +12,7 @@
 int		count = 0, max_fd = 0;
 int		ids[65536];
 char	*msgs[65536];
-
-fd_set	rfds, wfds, afds;
+fd_set	r_fds, w_fds, a_fds;
 char	buf_read[1001], buf_write[42];
 
 // COPIED FROM MAIN.C START
@@ -71,12 +70,12 @@ void	fatal_error()
 	exit(1);
 }
 
-void	notify_other(int author, char *msg)
+void	notify_others(int author, char *msg)
 {
-	for (int fd = 0; fd <= max_fd; fd++)
+	for (int i = 0; i <= max_fd; i++)
 	{
-		if (FD_ISSET(fd, &wfds) && fd != author)
-			send(fd, msg, strlen(msg), 0);
+		if (FD_ISSET(i, &w_fds) && i != author)
+			send(i, msg, strlen(msg), 0);
 	}
 }
 
@@ -86,7 +85,7 @@ void	register_client(int fd)
 	ids[fd] = count++;
 	msgs[fd] = NULL;
 
-	FD_SET(fd, &afds);
+	FD_SET(fd, &a_fds);
 	sprintf(buf_write, "server: client %d just arrived\n", ids[fd]);
 	notify_other(fd, buf_write);
 }
@@ -94,35 +93,35 @@ void	register_client(int fd)
 void	remove_client(int fd)
 {
 	sprintf(buf_write, "server: client %d just left\n", ids[fd]);
-	notify_other(fd, buf_write);
+	notify_others(fd, buf_write);
 	free(msgs[fd]);
-	FD_CLR(fd, &afds);
+	FD_CLR(fd, &a_fds);
 	close(fd);
 }
 
 void	send_msg(int fd)
 {
-	char	*msg;
+	char *msg;
 
 	while (extract_message(&(*msgs[fd]), &msg))
 	{
 		sprintf(buf_write, "client %d: ", ids[fd]);
-		notify_other(fd, buf_write);
-		notify_other(fd, msg);
+		notify_others(fd, buf_write);
+		notify_others(fd, msg);
 		free(msg);
 	}
 }
 
-int		create_socket()
+int create_socket()
 {
 	max_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (max_fd < 0)
 		fatal_error();
-	FD_SET(max_fd, &afds);
+	FD_SET(max_fd, &a_fds);
 	return (max_fd);
 }
 
-int		main(int ac, char **av)
+int main(int ac, char **av)
 {
 	if (ac != 2)
 	{
@@ -131,7 +130,7 @@ int		main(int ac, char **av)
 	}
 
 	// COPIED FROM MAIN.C START
-	FD_ZERO(&afds);
+	FD_ZERO(&a_fds);
 	int sockfd = create_socket();
 
 	struct sockaddr_in servaddr;
@@ -146,41 +145,27 @@ int		main(int ac, char **av)
 	if (listen(sockfd, SOMAXCONN)) // the main uses 10, SOMAXCONN is 180 on my machine
 		fatal_error();
 	// COPIED FROM MAIN.C END
-	
+
+
 	while (1)
 	{
-		rfds = wfds = afds;
+		r_fds = w_fds = a_fds;
 
-		if (select(max_fd + 1, &rfds, &wfds, NULL, NULL) < 0)
+		if (select(max_fd + 1, &r_fds, &w_fds, NULL, NULL) < 0)
 			fatal_error();
 		
 		for (int fd = 0; fd <= max_fd; fd++)
 		{
-			if (!FD_ISSET(fd, &rfds))
+			if (!FD_ISSET(fd, &r_fds))
 				continue;
-
-			if (fd == sockfd)
-			{
-				int client_fd = accept(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-				if (client_fd >= 0)
+			
+				if (fd == sockfd)
 				{
-					register_client(client_fd);
-					break ;
+					socklen_t addr_len = sizeof(servaddr);
+					int client_fd = 
 				}
-			}
-			else
-			{
-				int read_bytes = recv(fd, buf_read, 1000, 0);
-				if (read_bytes <= 0)
-				{
-					remove_client(fd);
-					break ;
-				}
-				buf_read[read_bytes] = '\0';
-				msgs[fd] = str_join(msgs[fd], buf_read);
-				send_msgs(fd);
-			}
 		}
 	}
+
 	return (0);
 }
